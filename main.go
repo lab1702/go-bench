@@ -62,7 +62,7 @@ func main() {
 
 	fmt.Printf("🚀 Go Goroutine Benchmark Tool\n")
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-	fmt.Printf("CPU Cores: %d\n", runtime.NumCPU())
+	fmt.Printf("Logical CPUs: %d\n", runtime.NumCPU())
 	fmt.Printf("Test Duration: %v per configuration\n", bench.duration)
 	fmt.Printf("Max Goroutines: %d\n", bench.maxRoutines)
 	fmt.Printf("Test Type: %s\n\n", bench.testType)

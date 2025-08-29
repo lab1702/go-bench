@@ -41,16 +41,16 @@ go-bench -d 5
 
 The tool benchmarks your system with different goroutine counts to find the optimal configuration:
 - 1 goroutine (baseline single-threaded performance)
-- CPU cores / 2
-- CPU cores
-- CPU cores * 1.5
-- CPU cores * 2
+- Logical CPUs / 2
+- Logical CPUs
+- Logical CPUs * 1.5
+- Logical CPUs * 2
 
 For each configuration, it measures:
 - Operations per second
 - Total operations completed
 - Speed increase compared to single goroutine
-- CPU ratio (goroutines / CPU cores)
+- CPU ratio (goroutines / Logical CPUs)
 
 ## Output
 
