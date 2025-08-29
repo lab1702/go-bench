@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"runtime"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,6 +23,29 @@ type Benchmark struct {
 	maxRoutines int
 	testType    string
 	verbose     bool
+}
+
+func formatNumber(n float64) string {
+	intPart := int64(n)
+	str := strconv.FormatInt(intPart, 10)
+	
+	if len(str) <= 3 {
+		return fmt.Sprintf("%.2f", n)
+	}
+	
+	result := ""
+	for i, digit := range str {
+		if i > 0 && (len(str)-i)%3 == 0 {
+			result += ","
+		}
+		result += string(digit)
+	}
+	
+	decimalPart := n - float64(intPart)
+	if decimalPart > 0 {
+		return fmt.Sprintf("%s.%02d", result, int(decimalPart*100))
+	}
+	return result + ".00"
 }
 
 func main() {
@@ -73,8 +97,8 @@ func (b *Benchmark) runCPUBenchmark() []BenchmarkResult {
 		result := b.benchmarkCPU(numGoroutines)
 		results = append(results, result)
 		
-		fmt.Printf("  ✓ Operations: %d | Rate: %.2f ops/sec\n", 
-			result.TotalOps, result.OpsPerSecond)
+		fmt.Printf("  ✓ Operations: %d | Rate: %s ops/sec\n", 
+			result.TotalOps, formatNumber(result.OpsPerSecond))
 	}
 
 	return results
@@ -285,7 +309,7 @@ func (b *Benchmark) printResults(results []BenchmarkResult, testType string) {
 
 	fmt.Printf("\n🏆 Optimal Configuration for %s:\n", testType)
 	fmt.Printf("   Goroutines: %d\n", bestResult.Goroutines)
-	fmt.Printf("   Performance: %.2f ops/sec\n", bestResult.OpsPerSecond)
+	fmt.Printf("   Performance: %s ops/sec\n", formatNumber(bestResult.OpsPerSecond))
 	
 	cpuRatio := float64(bestResult.Goroutines) / float64(runtime.NumCPU())
 	fmt.Printf("   CPU Ratio: %.2fx\n", cpuRatio)
