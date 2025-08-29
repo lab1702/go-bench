@@ -97,8 +97,8 @@ func (b *Benchmark) runCPUBenchmark() []BenchmarkResult {
 		result := b.benchmarkCPU(numGoroutines)
 		results = append(results, result)
 		
-		fmt.Printf("  ✓ Operations: %d | Rate: %s ops/sec\n", 
-			result.TotalOps, formatNumber(result.OpsPerSecond))
+		fmt.Printf("  ✓ Operations: %d | Rate: %.2f ops/sec\n", 
+			result.TotalOps, result.OpsPerSecond)
 	}
 
 	return results
