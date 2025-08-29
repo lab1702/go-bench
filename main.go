@@ -27,11 +27,11 @@ type Benchmark struct {
 func formatNumber(n float64) string {
 	intPart := int64(n)
 	str := strconv.FormatInt(intPart, 10)
-	
+
 	if len(str) <= 3 {
 		return fmt.Sprintf("%.2f", n)
 	}
-	
+
 	result := ""
 	for i, digit := range str {
 		if i > 0 && (len(str)-i)%3 == 0 {
@@ -39,7 +39,7 @@ func formatNumber(n float64) string {
 		}
 		result += string(digit)
 	}
-	
+
 	decimalPart := n - float64(intPart)
 	if decimalPart > 0 {
 		return fmt.Sprintf("%s.%02d", result, int(decimalPart*100))
@@ -90,7 +90,7 @@ func main() {
 	if len(memoryResults) > 0 {
 		bench.printResults(memoryResults, "Memory")
 	}
-	
+
 	fmt.Println()
 }
 
@@ -102,8 +102,8 @@ func (b *Benchmark) runCPUBenchmark() []BenchmarkResult {
 		fmt.Printf("\n▶ Testing with %d goroutines...\n", numGoroutines)
 		result := b.benchmarkCPU(numGoroutines)
 		results = append(results, result)
-		
-		fmt.Printf("  ✓ Operations: %d | Rate: %.2f ops/sec\n", 
+
+		fmt.Printf("  ✓ Operations: %d | Rate: %.2f ops/sec\n",
 			result.TotalOps, result.OpsPerSecond)
 	}
 
@@ -117,7 +117,7 @@ func (b *Benchmark) benchmarkCPU(numGoroutines int) BenchmarkResult {
 
 	progressTicker := time.NewTicker(time.Second)
 	defer progressTicker.Stop()
-	
+
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func() {
@@ -136,7 +136,7 @@ func (b *Benchmark) benchmarkCPU(numGoroutines int) BenchmarkResult {
 						result = math.Sin(result) + math.Cos(result)
 					}
 					localOps++
-					
+
 					if localOps%10000 == 0 {
 						atomic.AddUint64(&totalOps, 10000)
 						localOps -= 10000
@@ -179,8 +179,8 @@ func (b *Benchmark) runMemoryBenchmark() []BenchmarkResult {
 		fmt.Printf("\n▶ Testing with %d goroutines...\n", numGoroutines)
 		result := b.benchmarkMemory(numGoroutines)
 		results = append(results, result)
-		
-		fmt.Printf("  ✓ Allocations: %d | Rate: %.2f allocs/sec\n", 
+
+		fmt.Printf("  ✓ Allocations: %d | Rate: %.2f allocs/sec\n",
 			result.MemoryAllocs, result.OpsPerSecond)
 	}
 
@@ -215,7 +215,7 @@ func (b *Benchmark) benchmarkMemory(numGoroutines int) BenchmarkResult {
 						_ = buffer
 						localAllocs++
 					}
-					
+
 					if localAllocs%1000 == 0 {
 						atomic.AddUint64(&totalAllocs, 1000)
 						localAllocs -= 1000
@@ -254,22 +254,22 @@ func (b *Benchmark) benchmarkMemory(numGoroutines int) BenchmarkResult {
 func (b *Benchmark) getTestCases() []int {
 	cpuCount := runtime.NumCPU()
 	testCases := []int{1}
-	
+
 	if cpuCount > 1 {
 		testCases = append(testCases, cpuCount/2)
 	}
 	testCases = append(testCases, cpuCount)
-	
+
 	upperLimit := cpuCount + (cpuCount / 2)
 	if upperLimit > cpuCount {
 		testCases = append(testCases, upperLimit)
 	}
-	
+
 	// Add test for 2x CPU count (which is our max)
 	if b.maxRoutines >= cpuCount*2 {
 		testCases = append(testCases, cpuCount*2)
 	}
-	
+
 	return testCases
 }
 
@@ -288,13 +288,13 @@ func (b *Benchmark) printResults(results []BenchmarkResult, testType string) {
 	bestPerformance := 0.0
 
 	for _, result := range results {
-		fmt.Printf("%-12d | %-15.2f | %-12d\n", 
+		fmt.Printf("%-12d | %-15.2f | %-12d\n",
 			result.Goroutines, result.OpsPerSecond, result.TotalOps)
-		
+
 		if result.Goroutines == 1 {
 			singleGoroutineResult = result
 		}
-		
+
 		if result.OpsPerSecond > bestPerformance {
 			bestPerformance = result.OpsPerSecond
 			bestResult = result
@@ -306,7 +306,7 @@ func (b *Benchmark) printResults(results []BenchmarkResult, testType string) {
 	cpuRatio := float64(bestResult.Goroutines) / float64(runtime.NumCPU())
 	fmt.Printf("   CPU Ratio: %.2fx\n", cpuRatio)
 	fmt.Printf("   Performance: %s ops/sec\n", formatNumber(bestResult.OpsPerSecond))
-	
+
 	if singleGoroutineResult.Goroutines == 1 {
 		fmt.Printf("   Single Goroutine: %s ops/sec\n", formatNumber(singleGoroutineResult.OpsPerSecond))
 		speedup := bestResult.OpsPerSecond / singleGoroutineResult.OpsPerSecond
