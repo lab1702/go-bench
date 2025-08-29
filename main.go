@@ -22,7 +22,6 @@ type Benchmark struct {
 	duration    time.Duration
 	maxRoutines int
 	testType    string
-	verbose     bool
 }
 
 func formatNumber(n float64) string {
@@ -49,21 +48,16 @@ func formatNumber(n float64) string {
 }
 
 func main() {
-	duration := flag.Int("duration", 10, "Duration of each test in seconds")
-	maxRoutines := flag.Int("max", 0, "Maximum number of goroutines to test (0 = 2x CPU cores)")
-	testType := flag.String("type", "both", "Type of test: cpu, memory, or both")
-	verbose := flag.Bool("v", false, "Verbose output showing progress")
+	duration := flag.Int("d", 10, "Duration of each test in seconds")
+	testType := flag.String("t", "both", "Type of test: cpu, memory, or both")
 	flag.Parse()
 
-	if *maxRoutines == 0 {
-		*maxRoutines = runtime.NumCPU() * 2
-	}
+	maxRoutines := runtime.NumCPU() * 2
 
 	bench := &Benchmark{
 		duration:    time.Duration(*duration) * time.Second,
-		maxRoutines: *maxRoutines,
+		maxRoutines: maxRoutines,
 		testType:    *testType,
-		verbose:     *verbose,
 	}
 
 	fmt.Printf("🚀 Go Goroutine Benchmark Tool\n")
@@ -73,19 +67,31 @@ func main() {
 	fmt.Printf("Max Goroutines: %d\n", bench.maxRoutines)
 	fmt.Printf("Test Type: %s\n\n", bench.testType)
 
+	var cpuResults []BenchmarkResult
+	var memoryResults []BenchmarkResult
+
 	if bench.testType == "cpu" || bench.testType == "both" {
 		fmt.Printf("📊 CPU Benchmark\n")
 		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-		results := bench.runCPUBenchmark()
-		bench.printResults(results, "CPU")
+		cpuResults = bench.runCPUBenchmark()
 	}
 
 	if bench.testType == "memory" || bench.testType == "both" {
 		fmt.Printf("\n📊 Memory Benchmark\n")
 		fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
-		results := bench.runMemoryBenchmark()
-		bench.printResults(results, "Memory")
+		memoryResults = bench.runMemoryBenchmark()
 	}
+
+	// Print all results at the end
+	if len(cpuResults) > 0 {
+		bench.printResults(cpuResults, "CPU")
+	}
+
+	if len(memoryResults) > 0 {
+		bench.printResults(memoryResults, "Memory")
+	}
+	
+	fmt.Println()
 }
 
 func (b *Benchmark) runCPUBenchmark() []BenchmarkResult {
@@ -111,8 +117,6 @@ func (b *Benchmark) benchmarkCPU(numGoroutines int) BenchmarkResult {
 
 	progressTicker := time.NewTicker(time.Second)
 	defer progressTicker.Stop()
-
-	startTime := time.Now()
 	
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
@@ -146,12 +150,7 @@ func (b *Benchmark) benchmarkCPU(numGoroutines int) BenchmarkResult {
 		for {
 			select {
 			case <-progressTicker.C:
-				if b.verbose {
-					elapsed := time.Since(startTime)
-					progress := float64(elapsed) / float64(b.duration) * 100
-					ops := atomic.LoadUint64(&totalOps)
-					fmt.Printf("  Progress: %.0f%% | Ops: %d\r", progress, ops)
-				}
+				// Progress ticker removed with verbose option
 			case <-stop:
 				return
 			}
@@ -196,8 +195,6 @@ func (b *Benchmark) benchmarkMemory(numGoroutines int) BenchmarkResult {
 	progressTicker := time.NewTicker(time.Second)
 	defer progressTicker.Stop()
 
-	startTime := time.Now()
-
 	for i := 0; i < numGoroutines; i++ {
 		wg.Add(1)
 		go func() {
@@ -232,12 +229,7 @@ func (b *Benchmark) benchmarkMemory(numGoroutines int) BenchmarkResult {
 		for {
 			select {
 			case <-progressTicker.C:
-				if b.verbose {
-					elapsed := time.Since(startTime)
-					progress := float64(elapsed) / float64(b.duration) * 100
-					allocs := atomic.LoadUint64(&totalAllocs)
-					fmt.Printf("  Progress: %.0f%% | Allocs: %d\r", progress, allocs)
-				}
+				// Progress ticker removed with verbose option
 			case <-stop:
 				return
 			}
@@ -267,18 +259,15 @@ func (b *Benchmark) getTestCases() []int {
 		testCases = append(testCases, cpuCount/2)
 	}
 	testCases = append(testCases, cpuCount)
-	testCases = append(testCases, cpuCount*2)
 	
-	if b.maxRoutines > cpuCount*2 {
-		step := (b.maxRoutines - cpuCount*2) / 3
-		if step > 0 {
-			for i := cpuCount*2 + step; i <= b.maxRoutines; i += step {
-				testCases = append(testCases, i)
-			}
-		}
-		if testCases[len(testCases)-1] != b.maxRoutines {
-			testCases = append(testCases, b.maxRoutines)
-		}
+	upperLimit := cpuCount + (cpuCount / 2)
+	if upperLimit > cpuCount {
+		testCases = append(testCases, upperLimit)
+	}
+	
+	// Add test for 2x CPU count (which is our max)
+	if b.maxRoutines >= cpuCount*2 {
+		testCases = append(testCases, cpuCount*2)
 	}
 	
 	return testCases
@@ -295,11 +284,16 @@ func (b *Benchmark) printResults(results []BenchmarkResult, testType string) {
 	fmt.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n")
 
 	var bestResult BenchmarkResult
+	var singleGoroutineResult BenchmarkResult
 	bestPerformance := 0.0
 
 	for _, result := range results {
 		fmt.Printf("%-12d | %-15.2f | %-12d\n", 
 			result.Goroutines, result.OpsPerSecond, result.TotalOps)
+		
+		if result.Goroutines == 1 {
+			singleGoroutineResult = result
+		}
 		
 		if result.OpsPerSecond > bestPerformance {
 			bestPerformance = result.OpsPerSecond
@@ -309,8 +303,13 @@ func (b *Benchmark) printResults(results []BenchmarkResult, testType string) {
 
 	fmt.Printf("\n🏆 Optimal Configuration for %s:\n", testType)
 	fmt.Printf("   Goroutines: %d\n", bestResult.Goroutines)
-	fmt.Printf("   Performance: %s ops/sec\n", formatNumber(bestResult.OpsPerSecond))
-	
 	cpuRatio := float64(bestResult.Goroutines) / float64(runtime.NumCPU())
 	fmt.Printf("   CPU Ratio: %.2fx\n", cpuRatio)
+	fmt.Printf("   Performance: %s ops/sec\n", formatNumber(bestResult.OpsPerSecond))
+	
+	if singleGoroutineResult.Goroutines == 1 {
+		fmt.Printf("   Single Goroutine: %s ops/sec\n", formatNumber(singleGoroutineResult.OpsPerSecond))
+		speedup := bestResult.OpsPerSecond / singleGoroutineResult.OpsPerSecond
+		fmt.Printf("   Speed Increase: %.2fx vs single goroutine\n", speedup)
+	}
 }
